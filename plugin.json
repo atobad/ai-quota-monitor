@@ -1,0 +1,21 @@
+{
+  "name": "ai-quota-monitor",
+  "displayName": "AI 模型額度監控",
+  "version": "1.0.0",
+  "description": "Monitor real-time AI model quota pools, remaining percentages, and reset countdowns in the Antigravity Auxiliary Pane.",
+  "logo": "assets/logo.svg",
+  "author": {
+    "name": "atobad",
+    "url": "https://github.com/atobad"
+  },
+  "homepage": "https://github.com/atobad/ai-quota-monitor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/atobad/ai-quota-monitor"
+  },
+  "suggestedPrompts": [
+    "開啟 AI 模型額度監控面板",
+    "查看目前的模型剩餘額度與重置時間",
+    "檢查我的 Antigravity 使用額度"
+  ]
+}
