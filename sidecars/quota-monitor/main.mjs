@@ -17,6 +17,26 @@ export const DEFAULT_FAMILY_ORDER = [
 ];
 
 /**
+ * Resolves UI language ('zh' or 'en') from candidate locale strings.
+ * Defaults to 'en' for any language other than Chinese or English.
+ * @param {string | string[] | null | undefined} candidates
+ * @returns {'zh' | 'en'}
+ */
+export function resolveUiLocale(candidates) {
+  const list = Array.isArray(candidates) ? candidates : [candidates];
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized) continue;
+    if (normalized === 'zh' || normalized.startsWith('zh-') || normalized.startsWith('zh_')) {
+      return 'zh';
+    }
+    return 'en';
+  }
+  return 'en';
+}
+
+/**
  * Extracts a normalized model family name by stripping effort suffixes like "(High)", "(XHigh)", "(Medium)", "(Low)".
  * @param {string} label
  * @returns {string}
@@ -451,8 +471,8 @@ export function renderHtml() {
 <body>
   <div class="header">
     <div class="title-group">
-      <h1 class="title">AI 模型額度監控</h1>
-      <span id="tier-badge" class="tier-badge">載入中...</span>
+      <h1 id="app-title" class="title">AI 模型額度監控</h1>
+      <span id="tier-badge" class="tier-badge">...</span>
     </div>
     <div class="controls">
       <button id="refresh-btn" type="button">立即刷新</button>
@@ -463,7 +483,7 @@ export function renderHtml() {
   <div id="error-box" class="error-box"></div>
 
   <div id="order-toolbar" class="order-toolbar">
-    <span>點擊 ⤒ ↑ ↓ 或拖曳卡片調整顯示順序</span>
+    <span id="order-toolbar-hint">點擊 ⤒ ↑ ↓ 或拖曳卡片調整顯示順序</span>
     <div class="order-actions">
       <span id="save-hint" class="save-hint">已儲存</span>
       <button id="reset-order-btn" type="button" class="order-btn">恢復預設</button>
@@ -471,27 +491,167 @@ export function renderHtml() {
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-filter="gemini" type="button">Gemini 額度</button>
-    <button class="tab-btn" data-filter="all" type="button">全部模型</button>
+    <button id="tab-gemini" class="tab-btn active" data-filter="gemini" type="button">Gemini 額度</button>
+    <button id="tab-all" class="tab-btn" data-filter="all" type="button">全部模型</button>
   </div>
 
-  <div class="section-title">配額池總覽 (Shared Quota Pools)</div>
+  <div id="pools-section-title" class="section-title">配額池總覽 (Shared Quota Pools)</div>
   <div id="pools-container"></div>
 
-  <div class="section-title">各模型明細 (Model Variants)</div>
+  <div id="models-section-title" class="section-title">各模型明細 (Model Variants)</div>
   <div id="models-container"></div>
 
   <div class="status-footer">
     <span id="updated-at">尚未同步</span>
-    <span>每 30 秒自動同步</span>
+    <span id="auto-sync-label">每 30 秒自動同步</span>
   </div>
 
   <script>
+    const I18N = {
+      zh: {
+        title: 'AI 模型額度監控',
+        loading: '載入中...',
+        refresh: '立即刷新',
+        syncing: '同步中...',
+        reorder: '調整順序',
+        done: '完成調整',
+        reorderHint: '點擊 ⤒ ↑ ↓ 或拖曳卡片調整顯示順序',
+        saved: '已儲存',
+        resetDefault: '恢復預設',
+        tabGemini: 'Gemini 額度',
+        tabAll: '全部模型',
+        poolsTitle: '配額池總覽 (Shared Quota Pools)',
+        modelsTitle: '各模型明細 (Model Variants)',
+        notSynced: '尚未同步',
+        autoSync: '每 30 秒自動同步',
+        emptyPools: '目前沒有符合篩選條件的配額池資料。',
+        emptyModels: '無模型明細。',
+        remainingPrefix: '剩餘 ',
+        usedPrefix: '已使用 ',
+        modelsPrefix: '包含模型：',
+        noResetInfo: '無重置時間資訊',
+        unknown: '未知',
+        resettingSoon: '即將重置',
+        countdownPrefix: '重置倒數：',
+        resetAtPrefix: '重置時間：',
+        dayUnit: ' 天',
+        hourUnit: ' 小時',
+        minUnit: ' 分',
+        moveTop: '移至第一',
+        moveUp: '上移',
+        moveDown: '下移',
+        updatedPrefix: '最後更新：',
+        errLoad: '無法取得額度資料：',
+        errSaveOrder: '儲存順序失敗：',
+        errResetOrder: '恢復預設順序失敗：',
+        dateLocale: 'zh-TW'
+      },
+      en: {
+        title: 'AI Model Quota Monitor',
+        loading: 'Loading...',
+        refresh: 'Refresh',
+        syncing: 'Syncing...',
+        reorder: 'Reorder',
+        done: 'Done',
+        reorderHint: 'Click ⤒ ↑ ↓ or drag cards to reorder',
+        saved: 'Saved',
+        resetDefault: 'Reset Default',
+        tabGemini: 'Gemini',
+        tabAll: 'All Models',
+        poolsTitle: 'Shared Quota Pools',
+        modelsTitle: 'Model Variants',
+        notSynced: 'Not synced yet',
+        autoSync: 'Auto-sync every 30s',
+        emptyPools: 'No quota pools match the current filter.',
+        emptyModels: 'No model variants available.',
+        remainingPrefix: 'Left ',
+        usedPrefix: 'Used ',
+        modelsPrefix: 'Models: ',
+        noResetInfo: 'No reset info',
+        unknown: 'Unknown',
+        resettingSoon: 'Resetting soon',
+        countdownPrefix: 'Resets in: ',
+        resetAtPrefix: 'Reset at: ',
+        dayUnit: 'd',
+        hourUnit: 'h',
+        minUnit: 'm',
+        moveTop: 'Move to top',
+        moveUp: 'Move up',
+        moveDown: 'Move down',
+        updatedPrefix: 'Updated: ',
+        errLoad: 'Failed to load quota: ',
+        errSaveOrder: 'Failed to save order: ',
+        errResetOrder: 'Failed to reset order: ',
+        dateLocale: 'en-US'
+      }
+    };
+
+    function detectLocale(overrideLocale) {
+      const params = new URLSearchParams(window.location.search);
+      const candidates = [
+        overrideLocale,
+        params.get('lang'),
+        params.get('locale'),
+        ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+        navigator.language,
+        Intl.DateTimeFormat().resolvedOptions().locale
+      ];
+      for (const raw of candidates) {
+        if (typeof raw !== 'string') continue;
+        const normalized = raw.trim().toLowerCase();
+        if (!normalized) continue;
+        if (normalized === 'zh' || normalized.startsWith('zh-') || normalized.startsWith('zh_')) {
+          return 'zh';
+        }
+        return 'en';
+      }
+      return 'en';
+    }
+
+    let currentLang = detectLocale();
     let currentFilter = 'gemini';
     let latestData = null;
     let isEditOrder = false;
     let dragSourceFamily = null;
     let saveHintTimer = null;
+
+    function t(key) {
+      return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
+    }
+
+    function applyStaticTranslations() {
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-Hant' : 'en';
+      document.title = t('title');
+      document.getElementById('app-title').textContent = t('title');
+      if (!latestData) {
+        document.getElementById('tier-badge').textContent = t('loading');
+      }
+      const refreshBtn = document.getElementById('refresh-btn');
+      if (!refreshBtn.disabled) refreshBtn.textContent = t('refresh');
+      document.getElementById('order-toggle-btn').textContent = isEditOrder ? t('done') : t('reorder');
+      document.getElementById('order-toolbar-hint').textContent = t('reorderHint');
+      document.getElementById('save-hint').textContent = t('saved');
+      document.getElementById('reset-order-btn').textContent = t('resetDefault');
+      document.getElementById('tab-gemini').textContent = t('tabGemini');
+      document.getElementById('tab-all').textContent = t('tabAll');
+      document.getElementById('pools-section-title').textContent = t('poolsTitle');
+      document.getElementById('models-section-title').textContent = t('modelsTitle');
+      if (!latestData) {
+        document.getElementById('updated-at').textContent = t('notSynced');
+      }
+      document.getElementById('auto-sync-label').textContent = t('autoSync');
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'locale-change' || event.data?.type === 'language-change') {
+        const nextLocale = event.data?.payload?.locale || event.data?.payload?.language || event.data?.locale;
+        if (nextLocale) {
+          currentLang = detectLocale(nextLocale);
+          applyStaticTranslations();
+          render();
+        }
+      }
+    });
 
     function statusColor(pct) {
       if (pct === null || pct === undefined) return 'var(--accent)';
@@ -501,12 +661,12 @@ export function renderHtml() {
     }
 
     function formatCountdown(resetTimeIso) {
-      if (!resetTimeIso) return '無重置時間資訊';
+      if (!resetTimeIso) return t('noResetInfo');
       const target = new Date(resetTimeIso).getTime();
       const now = Date.now();
       const diffMs = target - now;
-      if (Number.isNaN(target)) return '未知';
-      if (diffMs <= 0) return '即將重置';
+      if (Number.isNaN(target)) return t('unknown');
+      if (diffMs <= 0) return t('resettingSoon');
 
       const totalMinutes = Math.floor(diffMs / 60000);
       const days = Math.floor(totalMinutes / (60 * 24));
@@ -514,17 +674,17 @@ export function renderHtml() {
       const minutes = totalMinutes % 60;
 
       const parts = [];
-      if (days > 0) parts.push(days + ' 天');
-      if (hours > 0 || days > 0) parts.push(hours + ' 小時');
-      parts.push(minutes + ' 分');
-      return '重置倒數：' + parts.join(' ');
+      if (days > 0) parts.push(days + t('dayUnit'));
+      if (hours > 0 || days > 0) parts.push(hours + t('hourUnit'));
+      parts.push(minutes + t('minUnit'));
+      return t('countdownPrefix') + parts.join(' ');
     }
 
     function formatLocalTime(resetTimeIso) {
       if (!resetTimeIso) return '';
       const d = new Date(resetTimeIso);
       if (Number.isNaN(d.getTime())) return '';
-      return '重置時間：' + d.toLocaleString('zh-TW', {
+      return t('resetAtPrefix') + d.toLocaleString(t('dateLocale'), {
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
@@ -583,7 +743,7 @@ export function renderHtml() {
         showSavedHint();
       } catch (err) {
         const errBox = document.getElementById('error-box');
-        errBox.textContent = '儲存順序失敗：' + (err.message || String(err));
+        errBox.textContent = t('errSaveOrder') + (err.message || String(err));
         errBox.style.display = 'block';
       }
     }
@@ -641,22 +801,22 @@ export function renderHtml() {
       );
 
       if (filteredPools.length === 0) {
-        poolsEl.innerHTML = '<div class="card">目前沒有符合篩選條件的配額池資料。</div>';
+        poolsEl.innerHTML = \`<div class="card">\${escapeHtml(t('emptyPools'))}</div>\`;
       } else {
         poolsEl.innerHTML = filteredPools.map((pool, index) => {
           const pct = pool.remainingPercent;
           const used = pool.usedPercent;
           const color = statusColor(pct);
           const pctText = pct !== null ? pct.toFixed(1) + '%' : 'N/A';
-          const usedText = used !== null ? '已使用 ' + used.toFixed(1) + '%' : '';
+          const usedText = used !== null ? t('usedPrefix') + used.toFixed(1) + '%' : '';
           const width = pct !== null ? Math.max(0, Math.min(100, pct)) : 0;
           const isFirst = index === 0;
           const isLast = index === filteredPools.length - 1;
           const orderControls = isEditOrder ? \`
             <div class="order-actions">
-              <button type="button" class="order-btn" data-move="top" data-family="\${escapeHtml(pool.family)}" \${isFirst ? 'disabled' : ''} title="移至第一">⤒</button>
-              <button type="button" class="order-btn" data-move="up" data-family="\${escapeHtml(pool.family)}" \${isFirst ? 'disabled' : ''} title="上移">↑</button>
-              <button type="button" class="order-btn" data-move="down" data-family="\${escapeHtml(pool.family)}" \${isLast ? 'disabled' : ''} title="下移">↓</button>
+              <button type="button" class="order-btn" data-move="top" data-family="\${escapeHtml(pool.family)}" \${isFirst ? 'disabled' : ''} title="\${escapeHtml(t('moveTop'))}">⤒</button>
+              <button type="button" class="order-btn" data-move="up" data-family="\${escapeHtml(pool.family)}" \${isFirst ? 'disabled' : ''} title="\${escapeHtml(t('moveUp'))}">↑</button>
+              <button type="button" class="order-btn" data-move="down" data-family="\${escapeHtml(pool.family)}" \${isLast ? 'disabled' : ''} title="\${escapeHtml(t('moveDown'))}">↓</button>
             </div>
           \` : '';
           const rankBadge = isEditOrder ? \`<span class="rank-badge">#\${index + 1}</span>\` : '';
@@ -664,7 +824,7 @@ export function renderHtml() {
             <div class="card \${pool.isGemini ? 'gemini-card' : ''} \${isEditOrder ? 'reorderable' : ''}" \${isEditOrder ? 'draggable="true"' : ''} data-pool-family="\${escapeHtml(pool.family)}">
               <div class="card-header">
                 <span class="model-name">\${rankBadge}\${escapeHtml(pool.family)}</span>
-                \${isEditOrder ? orderControls : \`<span class="pct-value" style="color: \${color}">剩餘 \${pctText}</span>\`}
+                \${isEditOrder ? orderControls : \`<span class="pct-value" style="color: \${color}">\${escapeHtml(t('remainingPrefix'))}\${pctText}</span>\`}
               </div>
               <div class="progress-track">
                 <div class="progress-fill" style="width: \${width}%; background: \${color}"></div>
@@ -677,7 +837,7 @@ export function renderHtml() {
                 <span></span>
                 <span>\${escapeHtml(formatLocalTime(pool.resetTime))}</span>
               </div>
-              <div class="variants">包含模型：\${pool.variants.map(escapeHtml).join('、')}</div>
+              <div class="variants">\${escapeHtml(t('modelsPrefix'))}\${pool.variants.map(escapeHtml).join(currentLang === 'zh' ? '、' : ', ')}</div>
             </div>
           \`;
         }).join('');
@@ -717,7 +877,7 @@ export function renderHtml() {
       }
 
       if (filteredModels.length === 0) {
-        modelsEl.innerHTML = '<div class="card">無模型明細。</div>';
+        modelsEl.innerHTML = \`<div class="card">\${escapeHtml(t('emptyModels'))}</div>\`;
       } else {
         modelsEl.innerHTML = filteredModels.map((m) => {
           const pct = m.remainingPercent;
@@ -740,16 +900,16 @@ export function renderHtml() {
 
       const updatedEl = document.getElementById('updated-at');
       const updatedDate = new Date(latestData.updatedAt);
-      updatedEl.textContent = '最後更新：' + (Number.isNaN(updatedDate.getTime())
+      updatedEl.textContent = t('updatedPrefix') + (Number.isNaN(updatedDate.getTime())
         ? latestData.updatedAt
-        : updatedDate.toLocaleTimeString('zh-TW', { hour12: false }));
+        : updatedDate.toLocaleTimeString(t('dateLocale'), { hour12: false }));
     }
 
     async function loadQuota() {
       const btn = document.getElementById('refresh-btn');
       const errBox = document.getElementById('error-box');
       btn.disabled = true;
-      btn.textContent = '同步中...';
+      btn.textContent = t('syncing');
       errBox.style.display = 'none';
 
       try {
@@ -762,11 +922,11 @@ export function renderHtml() {
         latestData = await res.json();
         render();
       } catch (err) {
-        errBox.textContent = '無法取得額度資料：' + (err.message || String(err));
+        errBox.textContent = t('errLoad') + (err.message || String(err));
         errBox.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.textContent = '立即刷新';
+        btn.textContent = t('refresh');
       }
     }
 
@@ -776,7 +936,7 @@ export function renderHtml() {
       const toggleBtn = document.getElementById('order-toggle-btn');
       const toolbar = document.getElementById('order-toolbar');
       toggleBtn.classList.toggle('btn-active', isEditOrder);
-      toggleBtn.textContent = isEditOrder ? '完成調整' : '調整順序';
+      toggleBtn.textContent = isEditOrder ? t('done') : t('reorder');
       toolbar.classList.toggle('visible', isEditOrder);
       render();
     });
@@ -794,7 +954,7 @@ export function renderHtml() {
         showSavedHint();
       } catch (err) {
         const errBox = document.getElementById('error-box');
-        errBox.textContent = '恢復預設順序失敗：' + (err.message || String(err));
+        errBox.textContent = t('errResetOrder') + (err.message || String(err));
         errBox.style.display = 'block';
       }
     });
@@ -807,6 +967,7 @@ export function renderHtml() {
       });
     });
 
+    applyStaticTranslations();
     loadQuota();
     setInterval(loadQuota, 30000);
   </script>

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import {
   DEFAULT_FAMILY_ORDER,
   extractModelFamily,
+  resolveUiLocale,
   loadFamilyOrder,
   saveFamilyOrder,
   sortByFamilyOrder,
@@ -177,7 +178,7 @@ test('renderHtml includes preload.js, updated title, and button order', () => {
   const html = renderHtml();
   assert.match(html, /<script src="\/preload\.js"><\/script>/);
   assert.match(html, /<title>AI 模型額度監控<\/title>/);
-  assert.match(html, /<h1 class="title">AI 模型額度監控<\/h1>/);
+  assert.match(html, /<h1 id="app-title" class="title">AI 模型額度監控<\/h1>/);
   assert.match(html, /id="pools-container"/);
   assert.match(html, /id="models-container"/);
   assert.match(html, /id="order-toggle-btn"/);
@@ -213,4 +214,23 @@ test('computeReorderedList deduplicates families when multiple pools share a fam
     'Gemini 4 Hydrogen',
     'Claude Sonnet 5.5',
   ]);
+});
+
+test('resolveUiLocale switches between Chinese and English, defaulting non-zh/en to English', () => {
+  assert.equal(resolveUiLocale('zh-TW'), 'zh');
+  assert.equal(resolveUiLocale('zh-Hans'), 'zh');
+  assert.equal(resolveUiLocale('zh'), 'zh');
+  assert.equal(resolveUiLocale('en-US'), 'en');
+  assert.equal(resolveUiLocale('en'), 'en');
+  assert.equal(resolveUiLocale('ja-JP'), 'en');
+  assert.equal(resolveUiLocale('fr-FR'), 'en');
+  assert.equal(resolveUiLocale(['', 'ko-KR', 'zh-TW']), 'en');
+  assert.equal(resolveUiLocale(null), 'en');
+});
+
+test('renderHtml includes bilingual I18N dictionaries and detectLocale', () => {
+  const html = renderHtml();
+  assert.match(html, /const I18N = \{/);
+  assert.match(html, /AI Model Quota Monitor/);
+  assert.match(html, /function detectLocale\(/);
 });
