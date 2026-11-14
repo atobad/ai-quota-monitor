@@ -1,20 +1,45 @@
-# AI 模型額度監控 (`ai-quota-monitor`)
+# AI Model Quota Monitor (`ai-quota-monitor`)
 
-在 Antigravity 右側輔助面板（Auxiliary Pane）即時顯示各 AI 模型（如 Gemini 4 Hydrogen、Gemini 4 Argon、Claude、GPT-OSS 等）的剩餘配額百分比、使用量進度條及重置倒數時間，並支援自訂顯示順序。
+English | [繁體中文](README.zh-TW.md)
 
-## 功能特色
+An **Antigravity UI Sidecar** plugin that displays real-time AI model quota pools (such as Gemini 4 Hydrogen, Gemini 4 Argon, Claude, GPT-OSS, etc.), remaining percentages, progress bars, and reset countdowns directly in the Antigravity Auxiliary Pane, with persistent customizable display ordering.
 
-- **配額池總覽與分頁篩選**：自動彙整共用配額池的模型群組，支援切換「Gemini 額度」與「全部模型」。
-- **自訂模型顯示順序**：點擊「調整順序」即可透過置頂 / 上移 / 下移按鈕或拖曳卡片調整排列順序，並持久化儲存於本地。
-- **即時重置倒數**：計算距離下次配額重置的剩餘時間（天 / 時 / 分）與本地重置時間。
-- **主題同步與自動更新**：透過 Antigravity `sidecar_sdk` 自動同步深淺色主題，支援每 30 秒自動同步或手動立即刷新。
+## Features
 
-## 目錄結構
+- **Shared Quota Pool Overview & Tabs**: Automatically groups model variants that share the same quota pool and lets you switch between **Gemini** and **All Models** views.
+- **Customizable Display Order**: Click **調整順序** (Reorder) to move model families to the top, up/down, or drag-and-drop cards. Custom order is persisted locally in `order-config.json` (excluded from Git).
+- **Real-Time Reset Countdown**: Shows both the remaining time (`days / hours / minutes`) and the local reset timestamp.
+- **Theme Sync & Auto-Refresh**: Automatically inherits Antigravity light/dark theme variables via `sidecar_sdk`, refreshes every 30 seconds, and supports manual instant refresh.
+
+## Installation
+
+### Option 1: Install via Antigravity CLI (`agy`)
+
+```bash
+agy plugin install https://github.com/atobad/ai-quota-monitor
+```
+
+### Option 2: Manual Installation
+
+Clone this repository into your global Antigravity plugins directory and restart Antigravity:
+
+```bash
+git clone https://github.com/atobad/ai-quota-monitor.git ~/.gemini/config/plugins/ai-quota-monitor
+```
+
+On Windows PowerShell:
+
+```powershell
+git clone https://github.com/atobad/ai-quota-monitor.git "$env:USERPROFILE\.gemini\config\plugins\ai-quota-monitor"
+```
+
+## Project Structure
 
 ```text
 ai-quota-monitor/
 ├── plugin.json
 ├── README.md
+├── README.zh-TW.md
 ├── LICENSE
 ├── assets/logo.svg
 ├── rules/AGENTS.md
@@ -25,14 +50,20 @@ ai-quota-monitor/
     └── main.test.mjs
 ```
 
-## 本機驗證與測試
+## Development & Verification
+
+Run the unit test suite (requires Node.js):
 
 ```bash
 node --test sidecars/quota-monitor/main.test.mjs
 ```
 
-若本機已安裝 Antigravity CLI（`agy`），可在提交 Marketplace 前執行嚴格驗證：
+Validate plugin schema and structure with Antigravity CLI before publishing:
 
 ```bash
 agy plugin validate --strict .
 ```
+
+## License
+
+[MIT](LICENSE)
