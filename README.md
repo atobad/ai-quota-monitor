@@ -7,9 +7,9 @@ An **Antigravity UI Sidecar** plugin that displays real-time AI model quota pool
 ## Features
 
 - **Shared Quota Pool Overview & Tabs**: Automatically groups model variants that share the same quota pool and lets you switch between **Gemini** and **All Models** views.
-- **Customizable Display Order**: Click **調整順序** (Reorder) to move model families to the top, up/down, or drag-and-drop cards. Custom order is persisted locally in `order-config.json` (excluded from Git).
+- **Customizable Display Order**: Click **Reorder** to move model families to the top, up/down, or drag-and-drop cards. Custom order is persisted locally in `order-config.json` (excluded from Git).
 - **Real-Time Reset Countdown**: Shows both the remaining time (`days / hours / minutes`) and the local reset timestamp.
-- **Theme Sync & Auto-Refresh**: Automatically inherits Antigravity light/dark theme variables via `sidecar_sdk`, refreshes every 30 seconds, and supports manual instant refresh.
+- **Auto Language Switching & Theme Sync**: Automatically switches between English and Traditional Chinese based on the host locale (falling back to English for other languages), inherits Antigravity light/dark theme variables via `sidecar_sdk`, refreshes every 30 seconds, and supports manual instant refresh.
 
 ## Installation
 
